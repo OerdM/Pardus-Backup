@@ -63,7 +63,7 @@ Bağımlılıklar otomatik çözülür. Kurulumdan sonra uygulama menüsünde
 ### Kaynaktan
 
 ```bash
-git clone https://github.com/OerdM/PardusBackup.git
+git clone https://github.com/OerdM/Pardus-Backup.git
 cd PardusBackup
 pip install --user .
 ```
