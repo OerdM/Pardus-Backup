@@ -235,5 +235,3 @@ sudo apt install ../pardus-backup_0.1.0_all.deb
   ile `pardusbackup backup` çalıştırılabilir.
 
 ## Lisans
-
-[MIT](LICENSE)
