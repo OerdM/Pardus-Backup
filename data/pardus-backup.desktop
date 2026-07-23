@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=Backup
-Name[tr]=Yedekleme
+Name=Pardus Backup
+Name[tr]=Pardus Yedekleme
 GenericName=Backup Tool
 GenericName[tr]=Yedekleme Aracı
 Comment=Create and manage incremental backups
