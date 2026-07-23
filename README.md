@@ -236,3 +236,4 @@ sudo apt install ../pardus-backup_0.1.0_all.deb
 
 ## Lisans
 
+[MIT](LICENSE)
