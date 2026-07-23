@@ -27,6 +27,16 @@ DEFAULT_SYSTEM_EXCLUDES = [
 ]
 
 
+def self_backup_excludes(sources: Sequence[str], dest: str) -> List[str]:
+    """Hedef, kaynaklardan birinin içindeyse gereken dışlama desenlerini üretir."""
+    patterns = []
+    for source in sources:
+        pattern = self_backup_exclude(source, dest)
+        if pattern:
+            patterns.append(pattern)
+    return patterns
+
+
 def self_backup_exclude(source: str, dest: str) -> Optional[str]:
     """Hedef, kaynağın içindeyse onu dışlayacak deseni döndürür.
 
@@ -42,18 +52,20 @@ def self_backup_exclude(source: str, dest: str) -> Optional[str]:
 
 
 def build_excludes(
-    source: str,
+    source,
     dest: str,
     system_excludes: bool = False,
     extra: Optional[Sequence[str]] = None,
 ) -> List[str]:
-    """Bir snapshot için nihai exclude listesini kurar."""
+    """Bir snapshot için nihai exclude listesini kurar.
+
+    `source` tek bir yol ya da yol listesi olabilir.
+    """
+    sources = [source] if isinstance(source, str) else list(source)
     patterns: List[str] = list(DEFAULT_SYSTEM_EXCLUDES) if system_excludes else []
     if extra:
         patterns += [p for p in extra if p]
-    guard = self_backup_exclude(source, dest)
-    if guard:
-        patterns.append(guard)
+    patterns += self_backup_excludes(sources, dest)
     return patterns
 
 
@@ -76,7 +88,7 @@ def unique_target(dest: str, stamp: str) -> str:
 
 
 def plan_snapshot(
-    source: str,
+    source,
     dest: str,
     system_excludes: bool = False,
     extra_excludes: Optional[Sequence[str]] = None,
@@ -88,11 +100,13 @@ def plan_snapshot(
     En son tamamlanmış snapshot varsa otomatik olarak link-dest seçilir; bu
     sayede kullanıcı "tam mı artımlı mı" kararını vermek zorunda kalmaz.
     """
+    sources = [source] if isinstance(source, str) else [s for s in source if s]
     latest = find_latest_snapshot(dest) if os.path.isdir(dest) else None
     return SnapshotConfig(
-        source_path=source,
+        source_path=sources[0] if sources else "",
+        sources=sources,
         target_path=unique_target(dest, make_timestamp(when)),
         link_dest_path=latest.snapshot_path if latest else None,
-        exclude_patterns=build_excludes(source, dest, system_excludes, extra_excludes),
+        exclude_patterns=build_excludes(sources, dest, system_excludes, extra_excludes),
         one_file_system=one_file_system,
     )

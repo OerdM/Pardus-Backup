@@ -50,6 +50,16 @@ class BackupWorker:
         GLib.idle_add(self._window.on_backup_progress, progress)
 
 
+def _kaynak_ozeti(snap: SnapshotInfo) -> str:
+    """Detay panelinde gösterilecek kaynak metni."""
+    kaynaklar = snap.sources or ([snap.source] if snap.source else [])
+    if not kaynaklar:
+        return "—"
+    if len(kaynaklar) == 1:
+        return kaynaklar[0]
+    return f"{len(kaynaklar)} yol:\n" + "\n".join(kaynaklar)
+
+
 class SnapshotDetails(Gtk.Box):
     """Seçili snapshot'ın ayrıntılarını gösteren yan panel."""
 
@@ -124,7 +134,7 @@ class SnapshotDetails(Gtk.Box):
         texts = (
             snap.created_local or "—",
             "Artımlı" if snap.incremental else "Tam",
-            snap.source or "—",
+            _kaynak_ozeti(snap),
             snap.snapshot_path,
             str(snap.file_count),
             human_bytes(snap.apparent_bytes),
@@ -224,14 +234,11 @@ class MainWindow(Gtk.ApplicationWindow):
         grid.set_margin_start(12)
         grid.set_margin_end(12)
 
-        grid.attach(Gtk.Label(label="Yedeklenecek:", xalign=1.0), 0, 0, 1, 1)
-        self.source_chooser = Gtk.FileChooserButton(
-            title="Yedeklenecek dizini seçin",
-            action=Gtk.FileChooserAction.SELECT_FOLDER,
-        )
-        self.source_chooser.set_filename(os.path.expanduser("~"))
-        self.source_chooser.set_hexpand(True)
-        grid.attach(self.source_chooser, 1, 0, 1, 1)
+        etiket = Gtk.Label(label="Yedeklenecek:", xalign=1.0)
+        etiket.set_valign(Gtk.Align.START)
+        etiket.set_margin_top(6)
+        grid.attach(etiket, 0, 0, 1, 1)
+        grid.attach(self._build_source_list(), 1, 0, 1, 1)
 
         grid.attach(Gtk.Label(label="Yedek konumu:", xalign=1.0), 0, 1, 1, 1)
         self.dest_chooser = Gtk.FileChooserButton(
@@ -249,6 +256,86 @@ class MainWindow(Gtk.ApplicationWindow):
         self.system_check.set_tooltip_text("Tüm sistemi (/) yedeklerken işaretleyin.")
         grid.attach(self.system_check, 1, 2, 1, 1)
         return grid
+
+    def _build_source_list(self) -> Gtk.Widget:
+        kutu = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+        self.source_store = Gtk.ListStore(str, str)
+        self.source_view = Gtk.TreeView(model=self.source_store)
+        self.source_view.set_headers_visible(False)
+        self.source_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
+
+        cizici = Gtk.CellRendererText()
+        cizici.set_property("ellipsize", Pango.EllipsizeMode.MIDDLE)
+        sutun = Gtk.TreeViewColumn("Kaynak", cizici, text=0)
+        sutun.set_expand(True)
+        self.source_view.append_column(sutun)
+        self.source_view.get_selection().connect(
+            "changed", lambda _s: self._update_source_buttons()
+        )
+
+        kaydirici = Gtk.ScrolledWindow()
+        kaydirici.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        kaydirici.set_size_request(-1, 92)
+        kaydirici.set_shadow_type(Gtk.ShadowType.IN)
+        kaydirici.set_hexpand(True)
+        kaydirici.add(self.source_view)
+        kutu.pack_start(kaydirici, True, True, 0)
+
+        dugmeler = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        klasor_ekle = Gtk.Button(label="Klasör ekle")
+        klasor_ekle.connect("clicked", lambda _b: self._add_sources(folders=True))
+        dosya_ekle = Gtk.Button(label="Dosya ekle")
+        dosya_ekle.connect("clicked", lambda _b: self._add_sources(folders=False))
+        self.source_remove = Gtk.Button(label="Kaldır")
+        self.source_remove.set_sensitive(False)
+        self.source_remove.connect("clicked", lambda _b: self._remove_sources())
+        for dugme in (klasor_ekle, dosya_ekle, self.source_remove):
+            dugmeler.pack_start(dugme, False, False, 0)
+        self.source_buttons = [klasor_ekle, dosya_ekle, self.source_remove]
+        kutu.pack_start(dugmeler, False, False, 0)
+        return kutu
+
+    def selected_sources(self) -> List[str]:
+        """Listedeki tüm kaynak yolları."""
+        return [satir[1] for satir in self.source_store]
+
+    def _update_source_buttons(self) -> None:
+        model, yollar = self.source_view.get_selection().get_selected_rows()
+        self.source_remove.set_sensitive(bool(yollar) and self._worker is None)
+
+    def _add_sources(self, folders: bool) -> None:
+        eylem = (
+            Gtk.FileChooserAction.SELECT_FOLDER
+            if folders
+            else Gtk.FileChooserAction.OPEN
+        )
+        pencere = Gtk.FileChooserDialog(
+            title="Klasör seçin" if folders else "Dosya seçin",
+            transient_for=self,
+            action=eylem,
+        )
+        pencere.add_button("Vazgeç", Gtk.ResponseType.CANCEL)
+        pencere.add_button("Ekle", Gtk.ResponseType.ACCEPT)
+        pencere.set_select_multiple(True)
+        pencere.set_current_folder(os.path.expanduser("~"))
+
+        if pencere.run() == Gtk.ResponseType.ACCEPT:
+            mevcut = set(self.selected_sources())
+            for yol in pencere.get_filenames():
+                if yol not in mevcut:
+                    self.source_store.append([os.path.basename(yol) or yol, yol])
+                    mevcut.add(yol)
+        pencere.destroy()
+        self._update_source_buttons()
+
+    def _remove_sources(self) -> None:
+        model, yollar = self.source_view.get_selection().get_selected_rows()
+        for referans in [Gtk.TreeRowReference.new(model, y) for y in yollar]:
+            yol = referans.get_path()
+            if yol is not None:
+                model.remove(model.get_iter(yol))
+        self._update_source_buttons()
 
     def _build_list(self) -> Gtk.Widget:
         self.store = Gtk.ListStore(str, str, str, str, str)
@@ -352,17 +439,17 @@ class MainWindow(Gtk.ApplicationWindow):
             self.details.show_snapshot(snap)
 
     def on_backup_clicked(self, _button: Gtk.Button) -> None:
-        source = self.source_chooser.get_filename()
+        sources = self.selected_sources()
         dest = self.dest_chooser.get_filename()
-        if not source or not dest:
+        if not sources or not dest:
             self.show_message(
                 "Eksik seçim",
-                "Lütfen hem yedeklenecek dizini hem de yedek konumunu seçin.",
+                "Lütfen en az bir yedeklenecek yol ve bir yedek konumu seçin.",
                 Gtk.MessageType.WARNING,
             )
             return
 
-        cfg = plan_snapshot(source, dest, self.system_check.get_active())
+        cfg = plan_snapshot(sources, dest, self.system_check.get_active())
 
         self.set_status("Ön kontrol yapılıyor…")
         check = preflight(cfg)
@@ -453,7 +540,6 @@ class MainWindow(Gtk.ApplicationWindow):
     def _set_busy(self, busy: bool) -> None:
         for widget in (
             self.backup_button,
-            self.source_chooser,
             self.dest_chooser,
             self.system_check,
         ):
@@ -462,6 +548,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.delete_button.set_sensitive(
             not busy and self._selected_snapshot() is not None
         )
+        for dugme in self.source_buttons:
+            dugme.set_sensitive(not busy)
+        self.source_view.set_sensitive(not busy)
+        self._update_source_buttons()
         self.cancel_button.set_sensitive(True)
         self.cancel_button.set_visible(busy)
         self.progress.set_visible(busy)

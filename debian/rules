@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=pardusbackup
+export PYBUILD_DISABLE=test
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	install -D -m 0644 data/pardus-backup.desktop \
+		debian/pardus-backup/usr/share/applications/tr.org.pardus.backup.desktop
+	install -D -m 0644 data/icons/pardus-backup.svg \
+		debian/pardus-backup/usr/share/icons/hicolor/scalable/apps/pardus-backup.svg

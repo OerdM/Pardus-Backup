@@ -1,0 +1,9 @@
+pardus-backup (0.1.0) unstable; urgency=medium
+
+  * Ilk surum.
+  * rsync --link-dest ile artimli yedekleme.
+  * Yedek oncesi denetim: kaynak, hedef, ayni dosya sistemi, disk alani.
+  * Yedekleri listeleme, ayrinti paneli ve silme.
+  * GTK3 arayuzu ve komut satiri araci.
+
+ -- Mer <mer@example.org>  Thu, 23 Jul 2026 10:00:00 +0300

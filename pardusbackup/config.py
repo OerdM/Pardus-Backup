@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+import os
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -10,8 +11,9 @@ _BYTE_UNITS = ("B", "KB", "MB", "GB", "TB")
 class SnapshotConfig:
     """Tek bir snapshot işlemini tanımlar. Doğrulama içermez."""
 
-    source_path: str
-    target_path: str
+    source_path: str = ""
+    target_path: str = ""
+    sources: List[str] = field(default_factory=list)
     link_dest_path: Optional[str] = None
     exclude_patterns: List[str] = field(default_factory=list)
     use_delete: bool = True
@@ -23,6 +25,16 @@ class SnapshotConfig:
     show_progress: bool = False
     dry_run: bool = False
     stats: bool = False
+
+    def resolved_sources(self) -> List[str]:
+        """Yedeklenecek yolların nihai listesi.
+
+        `sources` doluysa o kullanılır; boşsa tek kaynaklı eski biçime
+        (`source_path`) düşülür. Böylece mevcut çağrılar bozulmaz.
+        """
+        if self.sources:
+            return [s for s in self.sources if s]
+        return [self.source_path] if self.source_path else []
 
 
 def strip_trailing_slashes(path: str) -> str:
@@ -52,3 +64,9 @@ def human_bytes(count: int) -> str:
             return f"{int(value)} {unit}" if unit == "B" else f"{value:.1f} {unit}"
         value /= 1024
     return f"{value:.1f} {_BYTE_UNITS[-1]}"
+
+
+def source_label(path: str) -> str:
+    """Bir kaynağın snapshot içinde alacağı dizin/dosya adı."""
+    stripped = strip_trailing_slashes(path)
+    return "root" if stripped == "/" else os.path.basename(stripped)

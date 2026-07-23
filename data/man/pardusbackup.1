@@ -1,0 +1,96 @@
+.TH PARDUSBACKUP 1 "23 Temmuz 2026" "pardus-backup 0.1.0" "Kullanıcı Komutları"
+.SH İSİM
+pardusbackup \- rsync tabanlı artımlı yedekleme aracı
+.SH KULLANIM
+.B pardusbackup
+.I komut
+[\fISEÇENEKLER\fR]
+.SH AÇIKLAMA
+.B pardusbackup
+rsync ve sabit bağ (hardlink) kullanarak artımlı yedekler oluşturur.
+Değişmeyen dosyalar bir önceki yedeğe bağlandığı için her yedek eksiksiz bir
+kopya gibi görünür, ancak diskte yalnızca değişen veri kadar yer kaplar.
+.PP
+Yedek konumu ile kaynağın aynı dosya sisteminde olması gerekir; sabit bağ
+yalnızca tek bir dosya sistemi içinde kurulabilir.
+.SH KOMUTLAR
+.TP
+.B backup
+Yeni bir yedek alır. Daha önce alınmış bir yedek varsa otomatik olarak artımlı
+moda geçer.
+.TP
+.B check
+Yedek almadan önce kaynak erişimi, hedef yazılabilirliği, dosya sistemi
+uyumluluğu ve disk alanını denetler.
+.TP
+.B list
+Mevcut yedekleri en yeniden eskiye doğru listeler.
+.TP
+.B delete
+Belirtilen yedeği ve metadata dosyasını siler. Diğer yedekler etkilenmez.
+.TP
+.B gui
+GTK3 grafik arayüzünü başlatır.
+.SH SEÇENEKLER
+.TP
+.BR \-s ", " \-\-source " " \fIDİZİN\fR
+Yedeklenecek dizin.
+.TP
+.BR \-d ", " \-\-dest " " \fIDİZİN\fR
+Yedeklerin saklanacağı kök dizin.
+.TP
+.BR \-e ", " \-\-exclude " " \fIDESEN\fR
+Hariç tutulacak desen. Birden çok kez verilebilir.
+.TP
+.B \-\-system\-excludes
+/proc, /sys, /dev, /run, /tmp, /mnt, /media ve takas dosyalarını hariç tutar.
+Tüm sistemi yedeklerken kullanılır.
+.TP
+.BR \-x ", " \-\-one\-file\-system
+Bağlama noktalarını geçmez.
+.TP
+.B \-\-skip\-preflight
+Yedek öncesi disk alanı tahminini atlar; işlem daha hızlı başlar.
+.TP
+.B \-\-fast
+.B list
+komutunda disk taramasını atlar, boyutlar gösterilmez.
+.TP
+.BR \-y ", " \-\-yes
+.B delete
+komutunda onay sormaz.
+.SH ÖRNEKLER
+Ev dizinindeki belgeleri yedekler:
+.PP
+.RS
+.nf
+pardusbackup backup \-s ~/Belgeler \-d ~/yedekler
+.fi
+.RE
+.PP
+Tüm sistemi yedekler:
+.PP
+.RS
+.nf
+sudo pardusbackup backup \-s / \-d /yedek \-\-system\-excludes \-x
+.fi
+.RE
+.PP
+Yedekleri listeler:
+.PP
+.RS
+.nf
+pardusbackup list \-d ~/yedekler
+.fi
+.RE
+.SH DOSYALAR
+Her yedek, hedef dizinde zaman damgalı bir klasör ve yanında aynı adlı bir
+.I .json
+metadata dosyasıdır. Metadata yalnızca rsync başarıyla tamamlandıktan sonra
+yazılır; yarıda kesilen yedekler listelemede görünmez.
+.SH ÇIKIŞ DEĞERİ
+Başarıda 0, hata durumunda 1 döner.
+.SH AYRICA BAKINIZ
+.BR rsync (1)
+.SH HATA BİLDİRİMİ
+https://github.com/OerdM/Pardus-Backup

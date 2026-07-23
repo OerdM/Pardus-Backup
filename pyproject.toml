@@ -5,13 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pardusbackup"
 version = "0.1.0"
-description = "rsync tabanlı incremental yedekleme aracı (Pardus)"
+description = "rsync tabanlı artımlı yedekleme aracı"
+readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []          # Çekirdek yalnızca stdlib kullanır.
+license = {text = "GPL-3.0-or-later"}
+dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
-gui = ["PyGObject>=3.42"]  # GTK3 arayüzü (Pardus: python3-gi paketi)
+gui = ["PyGObject>=3.42"]
 
 [project.scripts]
 pardusbackup = "pardusbackup.__main__:main"

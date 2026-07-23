@@ -11,9 +11,7 @@ from .config import human_bytes
 from .listing import SnapshotInfo, delete_snapshot, list_snapshots
 from .planning import plan_snapshot
 
-GUI_INSTALL_HINT = (
-    "Pardus/Debian'da: sudo apt install python3-gi gir1.2-gtk-3.0"
-)
+GUI_INSTALL_HINT = "Kurulum: sudo apt install python3-gi gir1.2-gtk-3.0"
 
 
 def _plan(args: argparse.Namespace):
@@ -31,6 +29,10 @@ def cmd_check(args: argparse.Namespace) -> int:
     result = preflight(config)
     print(f"Durum : {result.status.value}")
     print(f"Mesaj : {result.message}")
+    kaynaklar = config.resolved_sources()
+    print(f"Kaynak  : {len(kaynaklar)} yol")
+    for yol in kaynaklar:
+        print(f"          {yol}")
     if config.link_dest_path:
         print(f"Referans: {config.link_dest_path}")
     else:
@@ -72,7 +74,10 @@ def _print_snapshot(snapshot: SnapshotInfo, with_sizes: bool) -> None:
     print(f"{label}  [{kind}]")
     print(f"   dizin   : {snapshot.snapshot_path}")
     if snapshot.metadata_valid:
-        print(f"   kaynak  : {snapshot.source}")
+        kaynaklar = snapshot.sources or [snapshot.source]
+        print(f"   kaynak  : {kaynaklar[0]}")
+        for yol in kaynaklar[1:]:
+            print(f"             {yol}")
     else:
         print("   kaynak  : (metadata okunamadı)")
     if with_sizes:
@@ -133,7 +138,13 @@ def _add_dest(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_source_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("-s", "--source", required=True, help="Yedeklenecek dizin")
+    parser.add_argument(
+        "-s",
+        "--source",
+        required=True,
+        action="append",
+        help="Yedeklenecek dizin veya dosya (birden çok kez verilebilir)",
+    )
     parser.add_argument(
         "-e",
         "--exclude",

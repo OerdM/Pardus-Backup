@@ -76,6 +76,7 @@ class SnapshotInfo:
     created_unix: int = 0
     created_local: str = ""
     source: str = ""
+    sources: List[str] = field(default_factory=list)
     link_dest: Optional[str] = None
     incremental: bool = False
     excludes: List[str] = field(default_factory=list)
@@ -112,6 +113,11 @@ def _apply_metadata(info: SnapshotInfo, metadata: Optional[dict]) -> None:
     info.created_unix = int(metadata.get("createdUnix", 0) or 0)
     info.created_local = str(metadata.get("createdLocal", "") or "")
     info.source = str(metadata.get("source", "") or "")
+    raw_sources = metadata.get("sources")
+    if isinstance(raw_sources, list) and raw_sources:
+        info.sources = [str(item) for item in raw_sources]
+    elif info.source:
+        info.sources = [info.source]
     info.link_dest = metadata.get("linkDest") or None
     info.incremental = bool(metadata.get("incremental", False))
     info.excludes = (

@@ -1,0 +1,33 @@
+Source: pardus-backup
+Section: utils
+Priority: optional
+Maintainer: Mer <mer@example.org>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-setuptools
+Standards-Version: 4.6.2
+Homepage: https://github.com/OerdM/Pardus-Backup
+Rules-Requires-Root: no
+
+Package: pardus-backup
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         rsync,
+         python3-gi,
+         gir1.2-gtk-3.0
+Description: rsync tabanli artimli yedekleme araci
+ PardusBackup, rsync ve sabit bag (hardlink) tabanli anlik goruntuler
+ olusturarak disk alanindan tasarruf eden bir yedekleme aracidir.
+ .
+ Degismeyen dosyalar onceki yedege baglanir; bu sayede her yedek eksiksiz
+ bir kopya gibi gorunur ama diskte yalnizca degisen veri kadar yer kaplar.
+ .
+ Ozellikler:
+  * Artimli yedekleme (rsync --link-dest)
+  * Yedek oncesi disk alani ve dosya sistemi denetimi
+  * Ilerleme gostergesi ve iptal destegi
+  * Yedekleri listeleme, ayrinti goruntuleme ve silme
+  * GTK3 arayuzu ve komut satiri araci

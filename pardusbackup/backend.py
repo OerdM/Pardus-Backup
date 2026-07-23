@@ -15,6 +15,7 @@ from .config import (
     SnapshotConfig,
     human_bytes,
     normalize_source,
+    source_label,
     strip_trailing_slashes,
 )
 
@@ -59,6 +60,22 @@ def _long_flags(cfg: SnapshotConfig) -> List[str]:
     return [flag for enabled, flag in toggles if enabled]
 
 
+def _source_args(cfg: SnapshotConfig) -> List[str]:
+    """Kaynakları rsync argümanına çevirir.
+
+    Tek kaynakta içerik-kopyala biçimi kullanılır: snapshot dizini kaynağın
+    içeriğini birebir yansıtır. Birden çok kaynakta ise her yol sondaki '/'
+    olmadan verilir; böylece her biri snapshot içinde kendi adıyla ayrı bir
+    girdi olur (Belgeler/, Resimler/, notlar.txt).
+    """
+    sources = cfg.resolved_sources()
+    if not sources:
+        return [""]
+    if len(sources) == 1:
+        return [normalize_source(sources[0])]
+    return [strip_trailing_slashes(path) for path in sources]
+
+
 def build_rsync_args(cfg: SnapshotConfig) -> List[str]:
     """Yapılandırmadan rsync argüman listesini üretir.
     Saf fonksiyondur; I/O yapmaz. Program adını içermez. Her argüman ayrı bir
@@ -69,7 +86,7 @@ def build_rsync_args(cfg: SnapshotConfig) -> List[str]:
     args += [f"--exclude={pattern}" for pattern in cfg.exclude_patterns if pattern]
     if cfg.link_dest_path:
         args.append(f"--link-dest={strip_trailing_slashes(cfg.link_dest_path)}")
-    args.append(normalize_source(cfg.source_path))
+    args += _source_args(cfg)
     args.append(strip_trailing_slashes(cfg.target_path))
     return args
 
@@ -84,6 +101,7 @@ def to_command_string(args: List[str]) -> str:
 class CheckStatus(Enum):
     OK = "Ok"
     SOURCE_NOT_ACCESSIBLE = "SourceNotAccessible"
+    SOURCE_NAME_COLLISION = "SourceNameCollision"
     TARGET_NOT_WRITABLE = "TargetNotWritable"
     LINK_DEST_MISSING = "LinkDestMissing"
     NOT_SAME_FILESYSTEM = "NotSameFilesystem"
@@ -107,13 +125,29 @@ def _target_parent_of(cfg: SnapshotConfig) -> str:
 
 
 def _validate_source(cfg: SnapshotConfig) -> Optional[CheckResult]:
-    if not cfg.source_path:
-        return CheckResult(CheckStatus.SOURCE_NOT_ACCESSIBLE, "Kaynak yol boş.")
-    if not os.access(cfg.source_path, os.R_OK):
-        return CheckResult(
-            CheckStatus.SOURCE_NOT_ACCESSIBLE,
-            f"Kaynak okunamıyor: {cfg.source_path}",
-        )
+    sources = cfg.resolved_sources()
+    if not sources:
+        return CheckResult(CheckStatus.SOURCE_NOT_ACCESSIBLE, "Kaynak seçilmedi.")
+
+    for path in sources:
+        if not os.access(path, os.R_OK):
+            return CheckResult(
+                CheckStatus.SOURCE_NOT_ACCESSIBLE,
+                f"Kaynak okunamıyor: {path}",
+            )
+
+    if len(sources) > 1:
+        seen: dict = {}
+        for path in sources:
+            label = source_label(path)
+            if label in seen:
+                return CheckResult(
+                    CheckStatus.SOURCE_NAME_COLLISION,
+                    f"İki kaynak aynı ada sahip ({label}): {seen[label]} ve {path}. "
+                    "Aynı adlı iki yol tek yedekte birleşeceği için biri "
+                    "çıkarılmalı.",
+                )
+            seen[label] = path
     return None
 
 
@@ -417,11 +451,13 @@ def _metadata_for(
 ) -> dict:
 
     now = int(time.time())
+    sources = cfg.resolved_sources()
     return {
         "version": METADATA_VERSION,
         "createdUnix": now,
         "createdLocal": make_timestamp(now),
-        "source": cfg.source_path,
+        "source": sources[0] if sources else "",
+        "sources": sources,
         "target": strip_trailing_slashes(cfg.target_path),
         "linkDest": cfg.link_dest_path,
         "incremental": bool(cfg.link_dest_path),

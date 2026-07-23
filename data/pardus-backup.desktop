@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Backup
+Name[tr]=Yedekleme
+GenericName=Backup Tool
+GenericName[tr]=Yedekleme Aracı
+Comment=Create and manage incremental backups
+Comment[tr]=Artımlı yedekler oluşturun ve yönetin
+Exec=pardusbackup-gui
+Icon=pardus-backup
+Terminal=false
+Categories=Utility;Archiving;
+Keywords=backup;snapshot;rsync;restore;archive;
+Keywords[tr]=yedek;yedekleme;anlık;görüntü;rsync;arşiv;
+StartupNotify=true
+StartupWMClass=pardusbackup-gui
