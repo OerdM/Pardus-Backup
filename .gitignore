@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pybuild/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Sanal ortamlar
+venv/
+.venv/
+env/
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Debian paketleme artıkları
+debian/pardus-backup/
+debian/.debhelper/
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+debian/*.postinst.debhelper
+debian/*.prerm.debhelper
+debian/debhelper-build-stamp
+
+# Derlenen paketler
+*.deb
+*.buildinfo
+*.changes
+*.tar.xz
+*.dsc
+
+# Editör / sistem
+*.swp
+*~
+.DS_Store
