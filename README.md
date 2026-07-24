@@ -103,7 +103,9 @@ with `pipx uninstall pardusbackup`.
 ### **Screenshots**
 
 ![Pardus Backup 1](screenshots/pardus-screenshot-1.png)
+
 ![Pardus Backup 2](screenshots/pardus-screenshot-2.png)
+
 ![Pardus Backup 3](screenshots/pardus-screenshot-3.png)
 
 
