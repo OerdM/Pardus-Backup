@@ -1,7 +1,3 @@
-"""
-Çekirdek, arayüzden tamamen bağımsızdır: aynı API'yi hem CLI (`__main__.py`)
-hem de ileride yazılacak GUI kullanır.
-"""
 
 from .backend import (
     CheckResult,
@@ -22,6 +18,13 @@ from .backend import (
     to_command_string,
 )
 from .config import SnapshotConfig, human_bytes
+from .restore import (
+    RestoreResult,
+    RestoreStatus,
+    build_restore_args,
+    check_restore,
+    restore_snapshot,
+)
 from .planning import (
     DEFAULT_SYSTEM_EXCLUDES,
     build_excludes,
@@ -71,6 +74,11 @@ __all__ = [
     "plan_snapshot",
     "self_backup_exclude",
     "unique_target",
+    "RestoreStatus",
+    "RestoreResult",
+    "build_restore_args",
+    "check_restore",
+    "restore_snapshot",
     "SnapshotInfo",
     "ListResult",
     "list_snapshots",

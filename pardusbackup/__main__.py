@@ -9,6 +9,7 @@ from .backend import preflight, take_snapshot
 from .config import human_bytes
 from .listing import SnapshotInfo, delete_snapshot, list_snapshots
 from .planning import plan_snapshot
+from .restore import restore_snapshot
 
 GUI_INSTALL_HINT = "Kurulum: sudo apt install python3-gi gir1.2-gtk-3.0"
 
@@ -129,6 +130,19 @@ def cmd_delete(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_restore(args: argparse.Namespace) -> int:
+    """Bir yedeği boş bir dizine geri yükler."""
+    sonuc = restore_snapshot(args.snapshot, args.target)
+    if not sonuc.success:
+        print(f"{sonuc.status.value}: {sonuc.message}", file=sys.stderr)
+        return 1
+    if sonuc.partial:
+        print("UYARI: Bazı dosyalar geri yüklenemedi.")
+        print(sonuc.warnings)
+    print(sonuc.message)
+    return 0
+
+
 def cmd_gui(_args: argparse.Namespace) -> int:
     try:
         from .gui import main as gui_main
@@ -198,6 +212,15 @@ def build_parser() -> argparse.ArgumentParser:
     remove.add_argument("snapshot", help="Silinecek yedek dizini")
     remove.add_argument("-y", "--yes", action="store_true", help="Onay sorma")
     remove.set_defaults(func=cmd_delete)
+
+    restore = subparsers.add_parser(
+        "restore", help="Bir yedeği boş bir dizine geri yükle"
+    )
+    restore.add_argument("snapshot", help="Geri yüklenecek yedek dizini")
+    restore.add_argument(
+        "-t", "--target", required=True, help="Hedef dizin (boş olmalı)"
+    )
+    restore.set_defaults(func=cmd_restore)
 
     gui = subparsers.add_parser("gui", help="GTK arayüzünü başlat")
     gui.set_defaults(func=cmd_gui)

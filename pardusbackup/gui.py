@@ -1,10 +1,3 @@
-"""
-Bu katman çekirdek mantık içermez; yalnızca backend/listing/planning API'sini
-çağırır. rsync bilgisi, yol normalizasyonu ve metadata biçimi çekirdekte kalır.
-
-GTK iş parçacığı güvenli değildir: rsync ayrı bir thread'de koşar ve arayüze
-her dokunuş GLib.idle_add ile ana döngüye aktarılır.
-"""
 
 from __future__ import annotations
 
@@ -21,6 +14,7 @@ from .backend import Progress, SnapshotResult, preflight, take_snapshot
 from .config import human_bytes
 from .listing import SnapshotInfo, delete_snapshot, list_snapshots
 from .planning import plan_snapshot
+from .restore import RestoreResult, check_restore, restore_snapshot
 
 APP_ID = "tr.org.pardus.backup"
 APP_TITLE = "Pardus Yedekleme"
@@ -64,6 +58,34 @@ def _kaynak_ozeti(snap: SnapshotInfo) -> str:
     if len(kaynaklar) == 1:
         return kaynaklar[0]
     return f"{len(kaynaklar)} yol:\n" + "\n".join(kaynaklar)
+
+
+class RestoreWorker:
+    """Geri yüklemeyi arka planda çalıştırır."""
+
+    def __init__(self, window: "MainWindow", snapshot: str, target: str) -> None:
+        self._window = window
+        self._snapshot = snapshot
+        self._target = target
+        self._cancel = threading.Event()
+
+    def start(self) -> None:
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def cancel(self) -> None:
+        self._cancel.set()
+
+    def _run(self) -> None:
+        result = restore_snapshot(
+            self._snapshot,
+            self._target,
+            on_progress=self._report,
+            cancel_event=self._cancel,
+        )
+        GLib.idle_add(self._window.on_restore_finished, result)
+
+    def _report(self, progress: Progress) -> None:
+        GLib.idle_add(self._window.on_backup_progress, progress)
 
 
 class SnapshotDetails(Gtk.Box):
@@ -189,6 +211,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self.cancel_button.connect("clicked", self.on_cancel_clicked)
         self.cancel_button.set_no_show_all(True)
         header.pack_start(self.cancel_button)
+
+        self.restore_button = Gtk.Button(label="Geri Yükle")
+        self.restore_button.set_tooltip_text(
+            "Seçili yedeği boş bir dizine çıkar"
+        )
+        self.restore_button.set_sensitive(False)
+        self.restore_button.connect("clicked", self.on_restore_clicked)
+        header.pack_end(self.restore_button)
 
         self.delete_button = Gtk.Button.new_from_icon_name(
             "user-trash-symbolic", Gtk.IconSize.BUTTON
@@ -438,7 +468,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_selection_changed(self, _selection: Gtk.TreeSelection) -> None:
         snap = self._selected_snapshot()
-        self.delete_button.set_sensitive(snap is not None and self._worker is None)
+        aktif = snap is not None and self._worker is None
+        self.delete_button.set_sensitive(aktif)
+        self.restore_button.set_sensitive(aktif and snap.metadata_valid if snap else False)
         if snap is None:
             self.details.clear()
         else:
@@ -513,6 +545,54 @@ class MainWindow(Gtk.ApplicationWindow):
         else:
             self.show_message("Silinemedi", result.message, Gtk.MessageType.ERROR)
 
+    def on_restore_clicked(self, _button: Gtk.Button) -> None:
+        snap = self._selected_snapshot()
+        if snap is None:
+            return
+
+        secici = Gtk.FileChooserDialog(
+            title="Geri yüklenecek boş dizini seçin",
+            transient_for=self,
+            action=Gtk.FileChooserAction.SELECT_FOLDER,
+        )
+        secici.add_button("Vazgeç", Gtk.ResponseType.CANCEL)
+        secici.add_button("Geri Yükle", Gtk.ResponseType.ACCEPT)
+        secici.set_create_folders(True)
+        secici.set_current_folder(os.path.expanduser("~"))
+        yanit = secici.run()
+        hedef = secici.get_filename()
+        secici.destroy()
+
+        if yanit != Gtk.ResponseType.ACCEPT or not hedef:
+            return
+
+        onay = check_restore(snap.snapshot_path, hedef)
+        if not onay.ok:
+            self.show_message("Geri yüklenemiyor", onay.message, Gtk.MessageType.WARNING)
+            return
+
+        self._worker = RestoreWorker(self, snap.snapshot_path, hedef)
+        self._set_busy(True)
+        self.set_status(f"Geri yükleniyor → {hedef}")
+        self._worker.start()
+
+    def on_restore_finished(self, result: RestoreResult) -> bool:
+        self._worker = None
+        self._set_busy(False)
+
+        if result.success:
+            self.set_status(result.message)
+            if result.partial:
+                self.show_message(
+                    "Bazı dosyalar geri yüklenemedi",
+                    result.warnings,
+                    Gtk.MessageType.WARNING,
+                )
+        else:
+            self.set_status("Geri yükleme tamamlanamadı.")
+            self.show_message("Geri yükleme hatası", result.message, Gtk.MessageType.ERROR)
+        return GLib.SOURCE_REMOVE
+
     def on_backup_progress(self, progress: Progress) -> bool:
         self.progress.set_fraction(min(progress.percent / 100.0, 1.0))
         parts = [f"%{progress.percent:.0f}", human_bytes(progress.transferred_bytes)]
@@ -562,8 +642,10 @@ class MainWindow(Gtk.ApplicationWindow):
         ):
             widget.set_sensitive(not busy)
 
-        self.delete_button.set_sensitive(
-            not busy and self._selected_snapshot() is not None
+        secili = self._selected_snapshot()
+        self.delete_button.set_sensitive(not busy and secili is not None)
+        self.restore_button.set_sensitive(
+            not busy and secili is not None and secili.metadata_valid
         )
         for dugme in self.source_buttons:
             dugme.set_sensitive(not busy)
