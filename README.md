@@ -53,6 +53,12 @@ pardusbackup check -s ~/Belgeler -d ~/yedekler
 pardusbackup delete ~/yedekler/2026-07-23_10-00-00
 ```
 
+Restore a backup into an empty directory
+
+```
+pardusbackup restore ~/yedekler/2026-07-23_10-00-00 -t ~/kurtarilan
+```
+
 ### **Build deb package**
 
 ```
@@ -85,8 +91,9 @@ Backing up the whole system requires root privileges. Launching the application
 from the menu runs it as the current user, which is sufficient for home
 directory backups.
 
-Restoring is not implemented yet. Snapshots are plain directories, so files can
-be copied back with any file manager.
+Restoring extracts a backup into an empty directory. The target must be empty
+and `--delete` is never used, so an existing file can never be overwritten or
+removed. Restoring in place over a running system is intentionally out of scope.
 
 If the application is also installed with pipx, that version shadows the
 packaged one and fails with `ModuleNotFoundError: No module named 'gi'`, because
@@ -94,6 +101,7 @@ an isolated virtual environment cannot see the system GTK bindings. Remove it
 with `pipx uninstall pardusbackup`.
 
 ### **Screenshots**
+
 
 ### License
 
