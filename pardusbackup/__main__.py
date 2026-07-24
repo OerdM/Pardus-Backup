@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import argparse
@@ -63,6 +62,10 @@ def cmd_backup(args: argparse.Namespace) -> int:
         print(f"BAŞARISIZ: {result.error_output}", file=sys.stderr)
         return 1
 
+    if result.partial:
+        print("UYARI: Bazı dosyalar okunamadı ve yedeğe alınmadı.")
+        print(result.warnings)
+        print("Yedeğin geri kalanı sağlam ve kullanılabilir.")
     print(f"Tamamlandı. Diske eklenen: {human_bytes(result.transferred_bytes)}")
     print(f"Metadata: {result.info_json_path}")
     return 0
@@ -70,6 +73,8 @@ def cmd_backup(args: argparse.Namespace) -> int:
 
 def _print_snapshot(snapshot: SnapshotInfo, with_sizes: bool) -> None:
     kind = "artımlı" if snapshot.incremental else "tam"
+    if snapshot.partial:
+        kind += ", kısmi"
     label = snapshot.created_local or os.path.basename(snapshot.snapshot_path)
     print(f"{label}  [{kind}]")
     print(f"   dizin   : {snapshot.snapshot_path}")

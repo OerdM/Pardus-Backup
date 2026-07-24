@@ -83,6 +83,7 @@ class SnapshotInfo:
     transferred_bytes: int = 0
     total_bytes: int = 0
     rsync_exit_code: int = 0
+    partial: bool = False
     file_count: int = 0
     apparent_bytes: int = 0
     disk_usage_bytes: int = 0
@@ -126,6 +127,7 @@ def _apply_metadata(info: SnapshotInfo, metadata: Optional[dict]) -> None:
     info.transferred_bytes = int(metadata.get("transferredBytes", 0) or 0)
     info.total_bytes = int(metadata.get("totalBytes", 0) or 0)
     info.rsync_exit_code = int(metadata.get("rsyncExitCode", 0) or 0)
+    info.partial = bool(metadata.get("partial", False))
     info.metadata_valid = True
 
 

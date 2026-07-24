@@ -19,7 +19,10 @@ from .config import (
     strip_trailing_slashes,
 )
 
-RSYNC_OK_EXIT_CODES = (0, 24)
+RSYNC_EXIT_OK = 0
+RSYNC_EXIT_PARTIAL = 23
+RSYNC_EXIT_VANISHED = 24
+RSYNC_OK_EXIT_CODES = (RSYNC_EXIT_OK, RSYNC_EXIT_PARTIAL, RSYNC_EXIT_VANISHED)
 METADATA_VERSION = 1
 SPACE_SAFETY_MARGIN = 0.10
 _STATS_TRANSFERRED = "Total transferred file size"
@@ -439,11 +442,29 @@ class SnapshotResult:
     exit_code: int = -1
     transferred_bytes: int = 0
     error_output: str = ""
+    partial: bool = False
+    warnings: str = ""
 
 
 def make_timestamp(when: Optional[float] = None) -> str:
     """Zaman damgalı snapshot dizin adı üretir."""
     return time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(when))
+
+
+def _summarize_skipped(stderr: str, limit: int = 5) -> str:
+    """rsync stderr'inden atlanan dosyaların kısa bir özetini çıkarır."""
+    lines = [
+        line.strip()
+        for line in stderr.splitlines()
+        if "failed to open" in line or "Permission denied" in line
+    ]
+    if not lines:
+        return stderr.strip()[:400]
+    shown = lines[:limit]
+    text = "\n".join(shown)
+    if len(lines) > limit:
+        text += f"\n… ve {len(lines) - limit} dosya daha"
+    return text
 
 
 def _metadata_for(
@@ -465,6 +486,7 @@ def _metadata_for(
         "transferredBytes": transferred,
         "totalBytes": total,
         "rsyncExitCode": rsync_exit,
+        "partial": rsync_exit == RSYNC_EXIT_PARTIAL,
         "completed": True,
     }
 
@@ -540,6 +562,9 @@ def take_snapshot(
         )
         _discard(result.snapshot_path)
         return result
+    if run.exit_code == RSYNC_EXIT_PARTIAL:
+        result.partial = True
+        result.warnings = _summarize_skipped(run.stderr)
     result.transferred_bytes = _parse_stats_bytes(run.stdout, _STATS_TRANSFERRED)
     total_bytes = _parse_stats_bytes(run.stdout, _STATS_TOTAL)
     info_path = result.snapshot_path + ".json"

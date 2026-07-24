@@ -50,6 +50,12 @@ class BackupWorker:
         GLib.idle_add(self._window.on_backup_progress, progress)
 
 
+def _tur_etiketi(snap: SnapshotInfo) -> str:
+    """Listede gösterilecek yedek türü."""
+    tur = "Artımlı" if snap.incremental else "Tam"
+    return f"{tur} · kısmi" if snap.partial else tur
+
+
 def _kaynak_ozeti(snap: SnapshotInfo) -> str:
     """Detay panelinde gösterilecek kaynak metni."""
     kaynaklar = snap.sources or ([snap.source] if snap.source else [])
@@ -133,7 +139,7 @@ class SnapshotDetails(Gtk.Box):
 
         texts = (
             snap.created_local or "—",
-            "Artımlı" if snap.incremental else "Tam",
+            _tur_etiketi(snap),
             _kaynak_ozeti(snap),
             snap.snapshot_path,
             str(snap.file_count),
@@ -521,7 +527,18 @@ class MainWindow(Gtk.ApplicationWindow):
         self._worker = None
         self._set_busy(False)
 
-        if result.success:
+        if result.success and result.partial:
+            self.set_status(
+                f"Yedekleme kısmi tamamlandı · diske eklenen "
+                f"{human_bytes(result.transferred_bytes)}"
+            )
+            self.show_message(
+                "Bazı dosyalar atlandı",
+                "Aşağıdaki dosyalar okunamadığı için yedeğe alınamadı. "
+                "Yedeğin geri kalanı sağlam ve kullanılabilir.\n\n" + result.warnings,
+                Gtk.MessageType.WARNING,
+            )
+        elif result.success:
             self.set_status(
                 f"Yedekleme tamamlandı · diske eklenen "
                 f"{human_bytes(result.transferred_bytes)}"
